@@ -27,6 +27,8 @@ then look for the "_credentials_" cookie, copy the value of that into the "_cred
 
 If you want to change the subtitles that will be downloaded, just put the preferred language into the "subtitle_lang" variable. But make sure the language is avaiable first.
 
+Before you can start it, you have to download yt-dlp from here: https://github.com/yt-dlp/yt-dlp/releases. Get the lasted version binary and place it in the folder. Make sure its named corretly ("yt-dlp.exe").
+
 After you have done that, just open a terminal and start the script with "npm run start".
 
 All the courses will be downloaded in a folder called "domestika_courses/{coursename}/".
