@@ -1,0 +1,16 @@
+{
+    "name": "domestika-downloader",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "cheerio": "^1.0.0-rc.12",
+        "m3u8-to-mp4": "^1.0.0",
+        "puppeteer": "^19.6.3"
+    }
+}
