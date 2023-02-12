@@ -1,3 +1,10 @@
+# Node JS Tool to download full courses from Domestika
+
+This script is a simple way to download a full course from Domestika.
+
+> **Warning**
+> You need to own the course you want to download. So yoi either have to have bought it or got it for "free" with your premium account.
+
 ## Installation
 
 Once you downloaded the Project, open the "index.js" file.
@@ -32,3 +39,7 @@ Before you can start it, you have to download yt-dlp from here: https://github.c
 After you have done that, just open a terminal and start the script with "npm run start".
 
 All the courses will be downloaded in a folder called "domestika_courses/{coursename}/".
+
+## Special Thanks
+
+Special thanks to [@Cybasaint](https://www.github.com/Cybasaint) for helping with the project and giving me access to his domestika account for testing.
