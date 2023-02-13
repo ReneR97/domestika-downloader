@@ -9,6 +9,7 @@ const converter = new m3u8ToMp4();
 const course_url = '';
 const subtitle_lang = 'en';
 
+//Cookie used to retreive video information
 const cookies = [
     {
         name: '_domestika_session',
@@ -17,11 +18,18 @@ const cookies = [
     },
 ];
 
+//Credentials needed for the access token to get the final project
 const _credentials_ = '';
 
-scrapeSite();
+//Check if the N_m3u8DL-RE.exe exists, throw error if not
+if (fs.existsSync('N_m3u8DL-RE.exe')) {
+    scrapeSite();
+} else {
+    throw Error('N_m3u8DL-RE.exe not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases');
+}
 
 async function scrapeSite() {
+    //Scrape site for links to videos
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
     await page.setCookie(...cookies);
@@ -40,6 +48,7 @@ async function scrapeSite() {
 
     let totalVideos = 1;
 
+    //Get all the links to the m3u8 files
     for (let i = 0; i < units.length - 1; i++) {
         let videoData = await getInitialProps($(units[i]).attr('href'));
         allVideos.push({
@@ -53,6 +62,7 @@ async function scrapeSite() {
         totalVideos += videoData.length;
     }
 
+    //Get access token from the credentials
     let access_token = decodeURI(_credentials_);
     let regex_token = /accessToken\":\"(.*?)\"/gm;
     access_token = regex_token.exec(access_token)[1];
@@ -68,6 +78,7 @@ async function scrapeSite() {
         videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project' }],
     });
 
+    //Loop through all files and download them
     let count = 0;
     for (let i = 0; i < allVideos.length; i++) {
         const unit = allVideos[i];
@@ -78,8 +89,8 @@ async function scrapeSite() {
                 fs.mkdirSync(`domestika_courses/${title}/${unit.title}/`, { recursive: true });
             }
 
-            await exec(`yt-dlp --allow-u -f "bv*[height<=1080]" ${vData.playbackURL} -o "domestika_courses/${title}/${unit.title}/${vData.title}.%(ext)s"`);
-            await exec(`yt-dlp --write-subs --sub-langs ${subtitle_lang} --skip-download --convert-subtitles srt "${vData.playbackURL}" -o "domestika_courses/${title}/${unit.title}/${vData.title}"`);
+            await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
+            await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle name="English":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
 
             count++;
             console.log(`Download ${count}/${totalVideos} Downloaded`);
