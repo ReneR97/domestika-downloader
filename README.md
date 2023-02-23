@@ -3,7 +3,7 @@
 This script is a simple way to download a full course from Domestika.
 
 > **Warning**
-> You need to own the course you want to download. So yoi either have to have bought it or got it for "free" with your premium account.
+> You need to own the course you want to download. So you either have to have bought it or got it for "free" with your premium account.
 
 ## Installation
 
@@ -35,6 +35,8 @@ then look for the "_credentials_" cookie, copy the value of that into the "_cred
 If you want to change the subtitles that will be downloaded, just put the preferred language into the "subtitle_lang" variable. But make sure the language is avaiable first.
 
 Before you can start it, you have to download N_m3u8DL-RE from here: https://github.com/nilaoda/N_m3u8DL-RE/releases. Get the lasted version binary and place it in the folder. Make sure its named corretly ("N_m3u8DL-RE.exe").
+
+Also be sure you have ffmpeg installed.
 
 After you have done that, just open a terminal and type
 
