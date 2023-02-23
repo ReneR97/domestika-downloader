@@ -6,6 +6,9 @@ const m3u8ToMp4 = require('m3u8-to-mp4');
 const fs = require('fs');
 const converter = new m3u8ToMp4();
 
+const debug = false;
+const debug_data = [];
+
 const course_url = '';
 const subtitle_lang = 'en';
 
@@ -89,8 +92,15 @@ async function scrapeSite() {
                 fs.mkdirSync(`domestika_courses/${title}/${unit.title}/`, { recursive: true });
             }
 
-            await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
-            await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle name="English":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
+            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
+            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
+
+            if (debug) {
+                debug_data.push({
+                    videoURL: vData.playbackURL,
+                    output: [log, log2],
+                });
+            }
 
             count++;
             console.log(`Download ${count}/${totalVideos} Downloaded`);
@@ -98,6 +108,11 @@ async function scrapeSite() {
     }
 
     await browser.close();
+
+    if (debug) {
+        fs.writeFileSync('log.json', JSON.stringify(debug_data));
+        console.log('Log File Saved');
+    }
 
     console.log('All Videos Downloaded');
 }
