@@ -2,9 +2,7 @@ const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
-const m3u8ToMp4 = require('m3u8-to-mp4');
 const fs = require('fs');
-const converter = new m3u8ToMp4();
 
 const debug = false;
 const debug_data = [];
@@ -73,13 +71,17 @@ async function scrapeSite() {
     let regex_final = /courses\/(.*?)-/gm;
     let final_project_id = regex_final.exec($(units[units.length - 1]).attr('href'))[1];
     let final_data = await fetchFromApi(`https://api.domestika.org/api/courses/${final_project_id}/final-project?with_server_timing=true`, 'finalProject.v1', access_token);
-    final_project_id = final_data.data.relationships.video.data.id;
-    final_data = await fetchFromApi(`https://api.domestika.org/api/videos/${final_project_id}?with_server_timing=true`, 'video.v1', access_token);
 
-    allVideos.push({
-        title: 'Final project',
-        videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project' }],
-    });
+    let final_video_data = final_data.data.relationships;
+    if (final_video_data != undefined && final_video_data.video != undefined && final_video_data.video.data == undefined && final_data.data.relationships.video.data == null) {
+        final_project_id = final_video_data.video.data.id;
+        final_data = await fetchFromApi(`https://api.domestika.org/api/videos/${final_project_id}?with_server_timing=true`, 'video.v1', access_token);
+
+        allVideos.push({
+            title: 'Final project',
+            videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project' }],
+        });
+    }
 
     //Loop through all files and download them
     let count = 0;
