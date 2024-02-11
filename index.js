@@ -94,8 +94,8 @@ async function scrapeSite() {
                 fs.mkdirSync(`domestika_courses/${title}/${unit.title}/`, { recursive: true });
             }
 
-            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
-            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title}"`);
+            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title.trimEnd()}"`);
+            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${unit.title}" --save-name "${a}_${vData.title.trimEnd()}"`);
 
             if (debug) {
                 debug_data.push({
