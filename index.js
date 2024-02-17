@@ -72,15 +72,17 @@ async function scrapeSite() {
     let final_project_id = regex_final.exec($(units[units.length - 1]).attr('href'))[1];
     let final_data = await fetchFromApi(`https://api.domestika.org/api/courses/${final_project_id}/final-project?with_server_timing=true`, 'finalProject.v1', access_token);
 
-    let final_video_data = final_data.data.relationships;
-    if (final_video_data != undefined && final_video_data.video != undefined && final_video_data.video.data == undefined && final_data.data.relationships.video.data == null) {
-        final_project_id = final_video_data.video.data.id;
-        final_data = await fetchFromApi(`https://api.domestika.org/api/videos/${final_project_id}?with_server_timing=true`, 'video.v1', access_token);
+    if (final_data) {
+        let final_video_data = final_data.data.relationships;
+        if (final_video_data != undefined && final_video_data.video != undefined && final_video_data.video.data == undefined && final_data.data.relationships.video.data == null) {
+            final_project_id = final_video_data.video.data.id;
+            final_data = await fetchFromApi(`https://api.domestika.org/api/videos/${final_project_id}?with_server_timing=true`, 'video.v1', access_token);
 
-        allVideos.push({
-            title: 'Final project',
-            videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project' }],
-        });
+            allVideos.push({
+                title: 'Final project',
+                videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project' }],
+            });
+        }
     }
 
     //Loop through all files and download them
@@ -155,7 +157,10 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
             authorization: `Bearer ${access_token}`,
         },
     });
-    const data = await response.json();
-
-    return data;
+    try {
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        return false;
+    }
 }
