@@ -8,20 +8,20 @@ const fs = require('fs');
 const debug = false;
 const debug_data = [];
 
-const course_url = '';
+const course_url = 'YOUR_COURSE_URL_HERE';
 const subtitle_lang = 'en';
 
 //Cookie used to retreive video information
 const cookies = [
     {
         name: '_domestika_session',
-        value: '',
+        value: 'YOUR_COOKIE_HERE',
         domain: 'www.domestika.org',
     },
 ];
 
 //Credentials needed for the access token to get the final project
-const _credentials_ = '';
+const _credentials_ = 'YOUR_CREDENTIALS_HERE';
 // --- END CONFIGURATION ---
 
 //Check if the N_m3u8DL-RE.exe exists, throw error if not
@@ -45,10 +45,9 @@ async function scrapeSite() {
     await page.setRequestInterception(true);
 
     page.on('request', (req) => {
-        if(req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image'){
+        if (req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image') {
             req.abort();
-        }
-        else {
+        } else {
             req.continue();
         }
     });
@@ -70,15 +69,17 @@ async function scrapeSite() {
     let regex_final = /courses\/(.*?)-*\/final_project/gm;
 
     // Apply regext to all units to get the final project
-    let final_project_id = units.map((i, element) => {
-        let href = $(element).attr('href');
-        let match = regex_final.exec(href);
-        if (match) {
-            return match[1].split('-')[0];
-        } else {
-            return null;
-        }
-    }).get()
+    let final_project_id = units
+        .map((i, element) => {
+            let href = $(element).attr('href');
+            let match = regex_final.exec(href);
+            if (match) {
+                return match[1].split('-')[0];
+            } else {
+                return null;
+            }
+        })
+        .get();
 
     //Remove final project from the units
     units = units.filter((i, element) => {
@@ -121,7 +122,7 @@ async function scrapeSite() {
 
                 allVideos.push({
                     title: 'Final project',
-                    videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project', section: 'Final project'}],
+                    videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project', section: 'Final project' }],
                 });
             }
         }
@@ -141,7 +142,7 @@ async function scrapeSite() {
             console.log(`Download ${count}/${totalVideos} Started`);
         }
     }
-    
+
     // Wait for all downloads to complete
     await Promise.all(downloadPromises);
 
@@ -164,20 +165,20 @@ async function getInitialProps(url, page) {
     const $ = cheerio.load(html);
 
     let section = $('h2.h3.course-header-new__subtitle')
-    .text()
-    .trim()
-    .replace(/[/\\?%*:|"<>]/g, '-');
+        .text()
+        .trim()
+        .replace(/[/\\?%*:|"<>]/g, '-');
 
     let videoData = [];
 
-    if (data && data != undefined) {
+    if (data && data != undefined && data.videos != undefined && data.videos.length > 0) {
         for (let i = 0; i < data.videos.length; i++) {
             const el = data.videos[i];
 
             videoData.push({
                 playbackURL: el.video.playbackURL,
                 title: el.video.title,
-                section: section
+                section: section,
             });
 
             console.log('Video Found: ' + el.video.title);
@@ -202,7 +203,7 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
         console.log('Error Fetching Data, check the credentials are still valid.');
         return false;
     }
-    
+
     try {
         const data = await response.json();
         return data;
