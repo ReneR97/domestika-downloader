@@ -97,9 +97,11 @@ async function scrapeSite() {
     //Get all the links to the m3u8 files
     for (let i = 0; i < units.length; i++) {
         let videoData = await getInitialProps($(units[i]).attr('href'), page);
+
         allVideos.push({
             title: $(units[i])
                 .text()
+                .replace('...', '')
                 .trim()
                 .replace(/[/\\?%*:|"<>]/g, '-'),
             videoData: videoData,
@@ -177,7 +179,7 @@ async function getInitialProps(url, page) {
 
             videoData.push({
                 playbackURL: el.video.playbackURL,
-                title: el.video.title,
+                title: el.video.title.replace('...', '').trim(),
                 section: section,
             });
 
