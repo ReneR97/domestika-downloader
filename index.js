@@ -101,7 +101,7 @@ async function scrapeSite() {
         allVideos.push({
             title: $(units[i])
                 .text()
-                .replace('...', '')
+                .replaceAll('.', '')
                 .trim()
                 .replace(/[/\\?%*:|"<>]/g, '-'),
             videoData: videoData,
@@ -179,7 +179,7 @@ async function getInitialProps(url, page) {
 
             videoData.push({
                 playbackURL: el.video.playbackURL,
-                title: el.video.title.replace('...', '').trim(),
+                title: el.video.title.replaceAll('.', '').trim(),
                 section: section,
             });
 
