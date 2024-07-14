@@ -219,13 +219,20 @@ async function downloadVideo(vData, title, unitTitle, index) {
     if (!fs.existsSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`)) {
         fs.mkdirSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`, { recursive: true });
     }
-    let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
-    let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
+    
+    const options = { maxBuffer: 1024 * 1024 * 10 };
 
-    if (debug) {
-        debug_data.push({
-            videoURL: vData.playbackURL,
-            output: [log, log2],
-        });
+    try {
+        let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+        let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+
+        if (debug) {
+            debug_data.push({
+                videoURL: vData.playbackURL,
+                output: [log, log2],
+            });
+        }
+    } catch (error) {
+        console.error(`Error downloading video: ${error}`);
     }
 }
