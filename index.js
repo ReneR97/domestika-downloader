@@ -10,6 +10,8 @@ const debug_data = [];
 
 const course_url = 'YOUR_COURSE_URL_HERE';
 const subtitle_lang = 'en';
+//Specifiy your OS either as 'win' for Windows machines or 'mac' for MacOS/Linux machines
+const machine_os = 'YOUR_OS_HERE';
 
 //Cookie used to retreive video information
 const cookies = [
@@ -24,11 +26,12 @@ const cookies = [
 const _credentials_ = 'YOUR_CREDENTIALS_HERE';
 // --- END CONFIGURATION ---
 
-//Check if the N_m3u8DL-RE.exe exists, throw error if not
-if (fs.existsSync('N_m3u8DL-RE.exe')) {
+//Check if the N_m3u8DL-RE binary exists, throw error if not
+const executable_name = machine_os === 'win' ? 'N_m3u8DL-RE.exe' : 'N_m3u8DL-RE';
+if (fs.existsSync(executable_name)) {
     scrapeSite();
 } else {
-    throw Error('N_m3u8DL-RE.exe not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases');
+    throw Error('N_m3u8DL-RE binary not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases');
 }
 
 //Get access token from the credentials
@@ -124,7 +127,13 @@ async function scrapeSite() {
 
                 allVideos.push({
                     title: 'Final project',
-                    videoData: [{ playbackURL: final_data.data.attributes.playbackUrl, title: 'Final project', section: 'Final project' }],
+                    videoData: [
+                        {
+                            playbackURL: final_data.data.attributes.playbackUrl,
+                            title: 'Final project',
+                            section: 'Final project',
+                        },
+                    ],
                 });
             }
         }
@@ -217,14 +226,21 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
 
 async function downloadVideo(vData, title, unitTitle, index) {
     if (!fs.existsSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`)) {
-        fs.mkdirSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`, { recursive: true });
+        fs.mkdirSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`, {
+            recursive: true,
+        });
     }
-    
+
     const options = { maxBuffer: 1024 * 1024 * 10 };
 
     try {
-        let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
-        let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+        if (machine_os === 'win') {
+            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+        } else {
+            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
+            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
+        }
 
         if (debug) {
             debug_data.push({
