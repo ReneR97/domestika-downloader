@@ -1,52 +1,171 @@
-const puppeteer = require('puppeteer');
-const cheerio = require('cheerio');
+const fs = require('fs');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
-const fs = require('fs');
+const puppeteer = require('puppeteer');
+const cheerio = require('cheerio');
+const path = require('path');
+const domestikaAuth = require('./auth.js');
+
+// Variables para los módulos que necesitan instalación
+let cliProgress;
+let colors;
+let inquirer;
 
 // --- CONFIGURATION ---
 const debug = false;
 const debug_data = [];
 
-const course_url = 'YOUR_COURSE_URL_HERE';
-const subtitle_lang = 'en';
-//Specifiy your OS either as 'win' for Windows machines or 'mac' for MacOS/Linux machines
-const machine_os = 'YOUR_OS_HERE';
+// Estas variables se obtendrán del usuario
+let course_url;
+let subtitle_lang;
+let quality;
 
-//Cookie used to retreive video information
-const cookies = [
-    {
-        name: '_domestika_session',
-        value: 'YOUR_COOKIE_HERE',
-        domain: 'www.domestika.org',
-    },
-];
-
-//Credentials needed for the access token to get the final project
-const _credentials_ = 'YOUR_CREDENTIALS_HERE';
 // --- END CONFIGURATION ---
 
-//Check if the N_m3u8DL-RE binary exists, throw error if not
-const executable_name = machine_os === 'win' ? 'N_m3u8DL-RE.exe' : 'N_m3u8DL-RE';
-if (fs.existsSync(executable_name)) {
-    scrapeSite();
-} else {
-    throw Error('N_m3u8DL-RE binary not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases');
+// Función para verificar e instalar dependencias
+async function checkAndInstallDependencies() {
+    const requiredModules = {
+        'cli-progress': () => cliProgress = require('cli-progress'),
+        'colors': () => colors = require('colors'),
+        'inquirer': () => inquirer = require('inquirer')
+    };
+
+    const missingModules = [];
+
+    for (const [moduleName, requireFn] of Object.entries(requiredModules)) {
+        try {
+            requireFn();
+            console.log(`✓ ${moduleName} está instalado`);
+        } catch (error) {
+            console.log(`✗ ${moduleName} no está instalado`);
+            missingModules.push(moduleName);
+        }
+    }
+
+    if (missingModules.length > 0) {
+        console.log(`\nInstalando dependencias faltantes: ${missingModules.join(', ')}...`);
+        try {
+            await exec(`npm install ${missingModules.join(' ')}`);
+            console.log('Dependencias instaladas correctamente.');
+            
+            for (const [moduleName, requireFn] of Object.entries(requiredModules)) {
+                if (missingModules.includes(moduleName)) {
+                    requireFn();
+                }
+            }
+        } catch (error) {
+            throw new Error(`Error instalando dependencias: ${error.message}`);
+        }
+    }
 }
 
-//Get access token from the credentials
-const regex_token = /accessToken\":\"(.*?)\"/gm;
-const access_token = regex_token.exec(decodeURI(_credentials_))[1];
+// Función para normalizar URLs de Domestika
+function normalizeDomestikaUrl(url) {
+    // Expresión regular para extraer el ID y nombre del curso
+    const courseRegex = /domestika\.org\/.*?\/courses\/(\d+[-\w]+)/;
+    const match = url.match(courseRegex);
+    
+    if (match) {
+        // Construir la URL normalizada
+        return `https://www.domestika.org/es/courses/${match[1]}/course`;
+    }
+    
+    return url;
+}
 
-async function scrapeSite() {
-    //Scrape site for links to videos
+// Función principal
+async function main() {
+    try {
+        console.log('Iniciando Domestika Downloader...');
+        
+        // Verificar e instalar dependencias
+        await checkAndInstallDependencies();
+        
+        // Obtener credenciales
+        const auth = await domestikaAuth.getCookies();
+        
+        // Pedir opciones al usuario
+        const answers = await inquirer.prompt([
+            {
+                type: 'input',
+                name: 'courseUrls',
+                message: 'URLs de los cursos (separadas por espacios):',
+                validate: (input) => {
+                    const urls = input.trim().split(' ');
+                    const validUrls = urls.every(url => {
+                        // Verificar que sea una URL de curso de Domestika
+                        return url.match(/domestika\.org\/.*?\/courses\/\d+[-\w]+/);
+                    });
+                    if (validUrls) {
+                        return true;
+                    }
+                    return 'Por favor ingresa URLs válidas de cursos de Domestika';
+                }
+            },
+            {
+                type: 'list',
+                name: 'subtitles',
+                message: '¿Deseas descargar subtítulos?',
+                choices: [
+                    { name: 'No descargar subtítulos', value: null },
+                    { name: 'Español', value: 'es' },
+                    { name: 'Inglés', value: 'en' },
+                    { name: 'Portugués', value: 'pt' },
+                    { name: 'Francés', value: 'fr' },
+                    { name: 'Alemán', value: 'de' },
+                    { name: 'Italiano', value: 'it' }
+                ]
+            }
+        ]);
+
+        // Verificar N_m3u8DL-RE
+        const N_M3U8DL_RE = process.platform === 'win32' ? 'N_m3u8DL-RE.exe' : 'N_m3u8DL-RE';
+        if (!fs.existsSync(N_M3U8DL_RE)) {
+            throw new Error(`${N_M3U8DL_RE} not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases`);
+        }
+
+        // Normalizar y procesar cada URL
+        const courseUrls = answers.courseUrls
+            .trim()
+            .split(' ')
+            .map(url => normalizeDomestikaUrl(url));
+
+        console.log(`\nSe procesarán ${courseUrls.length} cursos:`);
+        courseUrls.forEach((url, index) => {
+            console.log(`${index + 1}. ${url}`);
+        });
+
+        for (let i = 0; i < courseUrls.length; i++) {
+            const url = courseUrls[i];
+            console.log(`\n📚 Procesando curso ${i + 1} de ${courseUrls.length}: ${url}`);
+            await scrapeSite(url, answers.subtitles, auth);
+        }
+        
+        console.log('\n✅ Todos los cursos han sido procesados');
+        
+    } catch (error) {
+        console.error('Error:', error.message);
+        process.exit(1);
+    }
+}
+
+// Iniciar la aplicación
+if (require.main === module) {
+    main().catch(error => {
+        console.error('Error fatal:', error);
+        process.exit(1);
+    });
+}
+
+// ... resto de las funciones (scrapeSite, downloadVideo, etc.) ...
+
+async function scrapeSite(courseUrl, subtitle_lang, auth) {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(0);
-    await page.setCookie(...cookies);
+    await page.setCookie(...auth.cookies);
 
     await page.setRequestInterception(true);
-
     page.on('request', (req) => {
         if (req.resourceType() == 'stylesheet' || req.resourceType() == 'font' || req.resourceType() == 'image') {
             req.abort();
@@ -55,52 +174,49 @@ async function scrapeSite() {
         }
     });
 
-    await page.goto(course_url);
+    await page.goto(courseUrl);
     const html = await page.content();
     const $ = cheerio.load(html);
 
-    console.log('Scraping Site');
+    console.log('Analizando sitio');
 
     let allVideos = [];
     let units = $('h4.h2.unit-item__title a');
-    let title = $('h1.course-header-new__title')
+    let courseTitle = $('h1.course-header-new__title')
         .text()
         .trim()
         .replace(/[/\\?%*:|"<>]/g, '-');
 
-    let totalVideos = 1;
-    let regex_final = /courses\/(.*?)-*\/final_project/gm;
+    // Verificar si estamos en la página correcta
+    if (units.length === 0) {
+        await page.close();
+        await browser.close();
 
-    // Apply regext to all units to get the final project
-    let final_project_id = units
-        .map((i, element) => {
-            let href = $(element).attr('href');
-            let match = regex_final.exec(href);
-            if (match) {
-                return match[1].split('-')[0];
-            } else {
-                return null;
+        console.log('\n❌ No se encontraron videos. Esto puede deberse a cookies inválidas.');
+        
+        const answer = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'updateCookies',
+                message: '¿Deseas actualizar las cookies?',
+                default: true
             }
-        })
-        .get();
+        ]);
 
-    //Remove final project from the units
-    units = units.filter((i, element) => {
-        let href = $(element).attr('href');
-        let match = regex_final.exec(href);
-        if (match) {
-            return false;
+        if (answer.updateCookies) {
+            // Forzar la actualización de credenciales
+            await domestikaAuth.promptForCredentials(true);
+            // Intentar nuevamente con las nuevas credenciales
+            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies());
         } else {
-            return true;
+            throw new Error('No se pueden descargar los videos sin cookies válidas.');
         }
-    });
+    }
 
-    console.log(units.length + ' Units Detected');
+    console.log(units.length + ' Unidades detectadas');
 
-    //Get all the links to the m3u8 files
     for (let i = 0; i < units.length; i++) {
         let videoData = await getInitialProps($(units[i]).attr('href'), page);
-
         allVideos.push({
             title: $(units[i])
                 .text()
@@ -108,69 +224,99 @@ async function scrapeSite() {
                 .trim()
                 .replace(/[/\\?%*:|"<>]/g, '-'),
             videoData: videoData,
+            unitNumber: i + 1
         });
-
-        totalVideos += videoData.length;
     }
 
-    console.log('All Videos Found');
+    const totalVideos = allVideos.reduce((acc, unit) => acc + unit.videoData.length, 0);
 
-    if (final_project_id != undefined && final_project_id != null) {
-        console.log('Fetching Final Project');
-        let final_data = await fetchFromApi(`https://api.domestika.org/api/courses/${final_project_id}/final-project?with_server_timing=true`, 'finalProject.v1', access_token);
+    // Si no se encontraron videos después de escanear las unidades
+    if (totalVideos === 0) {
+        await page.close();
+        await browser.close();
 
-        if (final_data && final_data.data) {
-            let final_video_data = final_data.data.relationships;
-            if (final_video_data != undefined && final_video_data.video != undefined && final_video_data.video.data != undefined && final_data.data.relationships.video.data != null) {
-                final_project_id = final_video_data.video.data.id;
-                final_data = await fetchFromApi(`https://api.domestika.org/api/videos/${final_project_id}?with_server_timing=true`, 'video.v1', access_token);
-
-                allVideos.push({
-                    title: 'Final project',
-                    videoData: [
-                        {
-                            playbackURL: final_data.data.attributes.playbackUrl,
-                            title: 'Final project',
-                            section: 'Final project',
-                        },
-                    ],
-                });
+        console.log('\n❌ No se encontraron videos en las unidades. Esto puede deberse a cookies inválidas.');
+        
+        const answer = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'updateCookies',
+                message: '¿Deseas actualizar las cookies?',
+                default: true
             }
+        ]);
+
+        if (answer.updateCookies) {
+            // Forzar la actualización de credenciales
+            await domestikaAuth.promptForCredentials(true);
+            // Intentar nuevamente con las nuevas credenciales
+            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies());
+        } else {
+            throw new Error('No se pueden descargar los videos sin cookies válidas.');
         }
     }
 
-    //Loop through all files and download them
-    let count = 0;
+    console.log('Todos los videos encontrados');
+    let completedVideos = 0;
     let downloadPromises = [];
+
+    // Preparar todas las descargas
     for (let i = 0; i < allVideos.length; i++) {
         const unit = allVideos[i];
         for (let a = 0; a < unit.videoData.length; a++) {
             const vData = unit.videoData[a];
-            // Push the download promise to the array
-            downloadPromises.push(downloadVideo(vData, title, unit.title, a));
+            if (!vData || !vData.playbackURL) {
+                console.error(`Error: Datos de video inválidos para ${unit.title} #${a}`);
+                continue;
+            }
 
-            count++;
-            console.log(`Download ${count}/${totalVideos} Started`);
+            downloadPromises.push(
+                (async () => {
+                    try {
+                        console.log(`\nIniciando descarga: ${vData.title}`);
+                        await downloadVideo(vData, courseTitle, unit.title, a + 1, subtitle_lang, unit.unitNumber);
+                        completedVideos++;
+                        console.log(`\nCompletados ${completedVideos} de ${totalVideos} videos`);
+                        return true;
+                    } catch (error) {
+                        console.error(`Error en video ${vData.title}:`, error);
+                        return false;
+                    }
+                })()
+            );
         }
     }
 
-    // Wait for all downloads to complete
     await Promise.all(downloadPromises);
+
+    if (completedVideos === 0) {
+        console.log('\n❌ No se pudo descargar ningún video. Esto puede deberse a cookies inválidas.');
+        
+        const answer = await inquirer.prompt([
+            {
+                type: 'confirm',
+                name: 'updateCookies',
+                message: '¿Deseas actualizar las cookies?',
+                default: true
+            }
+        ]);
+
+        if (answer.updateCookies) {
+            // Forzar la actualización de credenciales
+            await domestikaAuth.promptForCredentials(true);
+            // Intentar nuevamente con las nuevas credenciales
+            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies());
+        }
+    } else {
+        console.log(`\nProceso finalizado. Completados ${completedVideos} de ${totalVideos} videos`);
+    }
 
     await page.close();
     await browser.close();
-
-    if (debug) {
-        fs.writeFileSync('log.json', JSON.stringify(debug_data));
-        console.log('Log File Saved');
-    }
-
-    console.log('All Videos Downloaded');
 }
 
 async function getInitialProps(url, page) {
     await page.goto(url);
-
     const data = await page.evaluate(() => window.__INITIAL_PROPS__);
     const html = await page.content();
     const $ = cheerio.load(html);
@@ -182,17 +328,15 @@ async function getInitialProps(url, page) {
 
     let videoData = [];
 
-    if (data && data != undefined && data.videos != undefined && data.videos.length > 0) {
+    if (data && data.videos && data.videos.length > 0) {
         for (let i = 0; i < data.videos.length; i++) {
             const el = data.videos[i];
-
             videoData.push({
                 playbackURL: el.video.playbackURL,
                 title: el.video.title.replaceAll('.', '').trim(),
                 section: section,
             });
-
-            console.log('Video Found: ' + el.video.title);
+            console.log('Video encontrado: ' + el.video.title);
         }
     }
 
@@ -211,7 +355,7 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
     });
 
     if (!response.ok) {
-        console.log('Error Fetching Data, check the credentials are still valid.');
+        console.log('Error Fetching Data');
         return false;
     }
 
@@ -224,31 +368,84 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
     }
 }
 
-async function downloadVideo(vData, title, unitTitle, index) {
-    if (!fs.existsSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`)) {
-        fs.mkdirSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`, {
-            recursive: true,
-        });
+async function downloadVideo(vData, courseTitle, unitTitle, index, subtitle_lang, unitNumber) {
+    if (!vData.playbackURL) {
+        throw new Error(`URL de video no válida para ${vData.title}`);
     }
 
-    const options = { maxBuffer: 1024 * 1024 * 10 };
+    const cleanPath = (path) => path.replace(/\/+/g, '/');
+    const baseDir = cleanPath(`domestika_courses/${courseTitle}/${vData.section}/${unitTitle}`);
 
+    if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+    }
+    
+    // Nuevo formato de nombre: "Nombre del Curso - Ux - Nombre del video"
+    const fileName = `${courseTitle} - U${unitNumber} - ${index}_${vData.title.trimEnd()}`;
+    
     try {
-        if (machine_os === 'win') {
-            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
-            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
-        } else {
-            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
-            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
+        console.log('Descargando video...');
+        await exec(
+            `./N_m3u8DL-RE -sv "res=1920x1080" "${vData.playbackURL}" --save-dir "${baseDir}" --save-name "${fileName}"`,
+            { maxBuffer: 1024 * 1024 * 10 }
+        );
+        
+        console.log('Video descargado correctamente');
+
+        if (subtitle_lang) {
+            console.log('Descargando subtítulos...');
+            
+            try {
+                await exec(
+                    `./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${baseDir}" --save-name "${fileName}"`,
+                    { maxBuffer: 1024 * 1024 * 10 }
+                );
+
+                const oldSubPath = path.join(baseDir, `${fileName}.${subtitle_lang}.srt`);
+                const newSubPath = path.join(baseDir, `${fileName}.srt`);
+                const videoPath = path.join(baseDir, `${fileName}.mp4`);
+
+                if (fs.existsSync(oldSubPath)) {
+                    console.log('Subtítulos descargados, incrustando en el video...');
+                    fs.copyFileSync(oldSubPath, newSubPath);
+                    await embedSubtitles(videoPath, oldSubPath);
+                    console.log('Subtítulos incrustados correctamente');
+                } else {
+                    console.log('No se encontraron subtítulos disponibles');
+                }
+            } catch (error) {
+                console.error('Error procesando subtítulos:', error.message);
+            }
         }
 
-        if (debug) {
-            debug_data.push({
-                videoURL: vData.playbackURL,
-                output: [log, log2],
-            });
-        }
+        return true;
     } catch (error) {
-        console.error(`Error downloading video: ${error}`);
+        throw new Error(`Error descargando video: ${error.message}`);
+    }
+}
+
+async function embedSubtitles(videoPath, subtitlePath) {
+    try {
+        const dir = path.dirname(videoPath);
+        const filename = path.basename(videoPath, '.mp4');
+        const outputPath = `${dir}/${filename}_with_subs.mp4`;
+        const finalSrtPath = `${dir}/${filename}.srt`;
+
+        // Crear una copia del archivo SRT con el mismo nombre que el video
+        fs.copyFileSync(subtitlePath, finalSrtPath);
+
+        await exec(`ffmpeg -i "${videoPath}" -i "${subtitlePath}" -c copy -c:s mov_text "${outputPath}"`);
+        
+        // Si todo salió bien, reemplazamos el archivo original
+        fs.unlinkSync(videoPath);
+        fs.renameSync(outputPath, videoPath);
+        fs.unlinkSync(subtitlePath); // Eliminamos el SRT original (el temporal)
+        
+        // Ya no eliminamos el SRT final que copiamos
+        
+        return true;
+    } catch (error) {
+        console.error(`Error embedding subtitles: ${error}`);
+        return false;
     }
 }
