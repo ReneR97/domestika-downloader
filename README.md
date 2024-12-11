@@ -6,6 +6,8 @@ This is an enhanced version of the [Original Domestika Course Downloader](https:
 
 New version developed by Chugeno, with code implementation by Claude Sonnet (Anthropic).
 
+⚠️ **IMPORTANT:** This tool only works with courses you have purchased. It cannot and should not be used to download courses you haven't bought. You must be the legitimate owner of the courses you want to download.
+
 ## Support the Project!
 
 If you find this tool useful, consider supporting its development! Your support helps maintain and improve the project.

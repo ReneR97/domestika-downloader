@@ -6,6 +6,8 @@ Este proyecto es una versión mejorada del [Domestika Course Downloader original
 
 Nueva versión desarrollada por Chugeno, con el código implementado por Claude Sonnet (Anthropic).
 
+⚠️ **IMPORTANTE:** Esta herramienta solo funciona con cursos que hayas comprado. No puede y no debe utilizarse para descargar cursos que no hayas adquirido. Debes ser el propietario legítimo de los cursos que deseas descargar.
+
 ## ¡Apoya el Proyecto!
 
 Si encuentras útil esta herramienta, ¡considera apoyar su desarrollo! Tu apoyo ayuda a mantener y mejorar el proyecto.
