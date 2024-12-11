@@ -1,128 +1,59 @@
-# Domestika Course Downloader (macOS)
+# Domestika Course Downloader V2
 
-Este proyecto es una versión mejorada del [Domestika Course Downloader original](https://github.com/ReneR97/domestika-downloader) creado por ReneR97.
+Enhanced version of the Domestika Course Downloader with new features and improvements.
 
-Nueva versión desarrollada por Chugeno, con el código implementado por Claude Sonnet (Anthropic).
+[🇪🇸 Leer en Español](README_ES.md)
 
-## Características
+## Features
 
-- ✨ Descarga múltiples cursos simultáneamente
-- 🔄 Acepta cualquier formato de URL de Domestika:
-  - URLs de unidades específicas (`/units/...`)
-  - URLs de la página principal del curso
-  - URLs completas (`/course`)
-- 🔐 Gestión automática de credenciales:
-  - Almacenamiento seguro en archivo `.env`
-  - Solicitud interactiva de cookies cuando son necesarias
-  - Validación de credenciales
-- 📝 Soporte para subtítulos en múltiples idiomas:
-  - Español
-  - Inglés
-  - Portugués
-  - Francés
-  - Alemán
-  - Italiano
-  - Los subtítulos se incrustan como pista en el video MP4
-  - Se genera archivo SRT independiente con el mismo nombre del video
-- 🚀 Características adicionales:
-  - Descarga paralela de videos
-  - Progreso detallado de descargas
-  - Manejo de errores inteligente
-  - Reintentos automáticos con cookies inválidas
+- **macOS Support**: Full compatibility with macOS systems
+- **Multiple URL Formats**: Accepts various Domestika URL formats
+- **Batch Processing**: Download multiple courses by entering URLs separated by spaces
+- **Interactive Cookie Management**: User-friendly cookie input with retry options
+- **Subtitle Integration**: Automatic subtitle download and embedding
+- **Enhanced Error Handling**: Clear error messages and automatic retry on failures
 
-## Requisitos Previos
+## Requirements
 
-1. **ffmpeg**:
-```bash
-brew install ffmpeg
-```
+- Node.js
+- N_m3u8DL-RE (download from the official website)
+- Valid Domestika account and course access
 
-2. **N_m3u8DL-RE**:
-- Descarga la última versión desde [GitHub](https://github.com/nilaoda/N_m3u8DL-RE/releases)
-- Colócalo en la carpeta del proyecto
-- Renómbralo a "N_m3u8DL-RE" (sin extensión)
-- Asegúrate de que tenga permisos de ejecución:
-```bash
-chmod +x N_m3u8DL-RE
-```
+## Installation
 
-3. **Node.js y npm**
+1. Clone this repository
+2. Run `npm install`
+3. Configure your `.env` file (use `.env.example` as template)
+4. Download N_m3u8DL-RE from the official website
 
-## Instalación
+## Usage
 
-1. Clona el repositorio:
-```bash
-git clone [URL_DEL_REPOSITORIO]
-cd domestika-downloader
-```
+1. Run the script: `node index.js`
+2. Enter your Domestika course URL(s)
+3. Follow the interactive prompts for cookie input
+4. Wait for your courses to download!
 
-2. Instala las dependencias:
-```bash
-npm install
-```
+## Support the Project
 
-## Uso
+If you find this tool useful, consider supporting the development! Your support helps maintain and improve the project.
 
-1. Ejecuta el programa:
-```bash
-npm start
-```
+### Buy Me a Coffee
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-yellow.svg)](http://buymeacoffee.com/chugeno)
 
-2. El programa te guiará interactivamente:
+### MercadoPago (for Latin American supporters)
+[![MercadoPago](https://img.shields.io/badge/MercadoPago-Support-blue.svg)](https://link.mercadopago.com.ar/eugenioazurmendi)
 
-   a. **Ingreso de URLs**:
-   - Puedes ingresar una o múltiples URLs separadas por espacios
-   - Las URLs pueden ser de cualquier página del curso
-   - Ejemplos válidos:
-     ```
-     https://www.domestika.org/es/courses/1234-nombre-del-curso
-     https://www.domestika.org/es/courses/1234-nombre-del-curso/units/5678-unidad
-     https://www.domestika.org/es/courses/1234-nombre-del-curso/course
-     ```
+Your support helps keep this project alive and enables new features! ☕️
 
-   b. **Selección de subtítulos**:
-   - Elige si deseas descargar subtítulos y en qué idioma
+## Contributing
 
-3. **Gestión de Credenciales**:
-   - En el primer uso o si las cookies son inválidas, el programa te pedirá:
-     1. Abrir las Herramientas de Desarrollo (F12)
-     2. Ir a la pestaña Storage -> Cookies
-     3. Copiar el valor de las cookies:
-        - `_domestika_session`
-        - `_credentials`
-   - Las credenciales se guardan automáticamente en `.env`
+Feel free to open issues or submit pull requests. All contributions are welcome!
 
-4. **Durante la Descarga**:
-   - Verás el progreso de cada video
-   - Se mostrarán mensajes de estado detallados
-   - En caso de error, se te ofrecerá actualizar las cookies
+## Credits
 
-## Estructura de Archivos
+- Original project inspiration: [Original Domestika Downloader]
+- Enhanced by: [Eugenio Azurmendi]
 
-Los cursos se descargan en la carpeta `domestika_courses/` con la siguiente estructura:
-```
-domestika_courses/
-└── Nombre del Curso/
-    └── Sección/
-        ├── Nombre del Curso - U1 - 1_Nombre del Video.mp4
-        └── Nombre del Curso - U1 - 1_Nombre del Video.srt
-```
+## License
 
-## Notas
-
-- Esta versión está optimizada para macOS
-- Las credenciales se almacenan localmente en `.env` (no se suben a GitHub)
-- Si encuentras errores de cookies inválidas, el programa te guiará para actualizarlas
-- Los videos se descargan en la mejor calidad disponible (1920x1080)
-
-## Créditos
-
-- Proyecto original: [ReneR97](https://github.com/ReneR97/domestika-downloader)
-- Nueva versión: Chugeno
-- Implementación del código: Claude Sonnet (Anthropic)
-
-## Limitaciones
-
-- Versión actual solo para macOS
-- Requiere tener una cuenta de Domestika con acceso a los cursos
-- Las cookies deben actualizarse periódicamente
+This project is licensed under the MIT License - see the LICENSE file for details.
