@@ -1,80 +1,146 @@
-# Node JS Tool to download full courses from Domestika
+# Domestika Course Downloader V2
 
-This script is a simple way to download a full course from Domestika.
+[🇪🇸 Leer en Español](README_ES.md)
 
-> **Warning**
-> You need to own the course you want to download. So you either have to have bought it or got it for "free" with your premium account.
+⚠️ **IMPORTANT NOTICE**: Currently, this version is optimized and tested for macOS only. We are working on Windows compatibility.
 
-## Installation
+This is an enhanced version of the [Original Domestika Course Downloader](https://github.com/ReneR97/domestika-downloader) created by ReneR97.
 
-Once you downloaded the Project, open the "index.js" file.
+New version developed by Chugeno, with code implementation by Claude Sonnet (Anthropic).
 
-You will find the following variables:
+⚠️ **IMPORTANT:** This tool only works with courses you have purchased. It cannot and should not be used to download courses you haven't bought. You must be the legitimate owner of the courses you want to download.
 
-```javascript
-  const course_url = "";
-  const subtitle_lang = "en";
-  const machine_os = "";
-  const cookies;
-  const _credentials_ = "";
-```
+## Support the Project!
 
-The `course_url` is just the full URL of the course you want to download. For example:
+If you find this tool useful, consider supporting its development! Your support helps maintain and improve the project.
 
-https://www.domestika.org/en/courses/3086-creating-animated-stories-with-after-effects/course
+### Buy Me a Coffee
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-yellow.svg)](http://buymeacoffee.com/chugeno)
 
-IMPORTANT: you have to be on the "content" page. You know you are on the right site when at the end of the URL it says "/course".
+### MercadoPago (for Latin American supporters)
+[![MercadoPago](https://img.shields.io/badge/MercadoPago-Support-blue.svg)](https://link.mercadopago.com.ar/eugenioazurmendi)
 
-To get the _domestika_session and the \_credentials_ you will need to install a chrome extension called Cookie-Editor.
+Your support helps keep this project alive and enables new features! ☕️
 
-After you installed the extension, log into domestika and open the extension.
+## Features
 
-In the window popup, look for "\_domestika_session", click to open it and copy the contents of the Value field into the value field under cookies.
+- ✨ Download multiple courses simultaneously
+- 🔄 Accepts any Domestika URL format:
+  - Specific unit URLs (`/units/...`)
+  - Course main page URLs
+  - Complete URLs (`/course`)
+- 🔐 Automatic credential management:
+  - Secure storage in `.env` file
+  - Interactive cookie request when needed
+  - Credential validation
+- 📝 Support for subtitles in multiple languages:
+  - Spanish
+  - English
+  - Portuguese
+  - French
+  - German
+  - Italian
+  - Subtitles are embedded as tracks in MP4 video
+  - Independent SRT file is generated with the same video name
+- 🚀 Additional features:
+  - Parallel video downloads
+  - Detailed download progress
+  - Smart error handling
+  - Automatic retries with invalid cookies
 
-Then look for the "_credentials_" cookie, copy the value of that into the "_credentials_" variable.
+## Prerequisites
 
-If you want to change the subtitles that will be downloaded, just put the preferred language into the "subtitle_lang" variable. But make sure the language is avaiable first.
-
-The machine_os is just to specify whether the machine you are on is Windows or MacOS/Linux. If you are on a Windows machine, be sure to set:
-```javascript
-const machine_os = "win";
-```
-Otherwise if you are on MacOS or Linux:
-```javascript
-const machine_os = "mac";
-```
-
-Before you can start it, you have to download N_m3u8DL-RE from here: https://github.com/nilaoda/N_m3u8DL-RE/releases. Get the lastest version binary and place it in the root directory of the folder. To do so, simply scroll down to the 'Assets' section and download the appropriate binary based on your machine. Note there are binaries for Windows (on arm64 and x64 architectures), MacOS (on arm64 and x64 architectures) and Linux (on arm64 and x64 architectures). Download the compressed file that corresponds to your machine and architecture, unzip it, then place the binary in this repo's root folder. 
-
-NOTE: For Windows, the file will be called "N_m3u8DL-RE.exe", while on MacOS and Linux, the file will be called "N_m3u8DL-RE". Do not change these names.
-
-Also be sure you have ffmpeg installed.
-
-After you have done that, navigate to the repo, open a terminal and type
-
+1. **ffmpeg**:
 ```bash
-npm i
+brew install ffmpeg
 ```
 
-After that, to start the script type
-
-```bash
-npm run start
-```
-
-NOTE: On MacOS and Linux, depending on your perimssions, you may encounter an error from `N_m3u8DL-RE`:
-```bash
-N_m3u8DL-RE: Permission denied
-```
-
-If this occurs, open a terminal and grant execute permissions for the binary:
+2. **N_m3u8DL-RE**:
+- Download the latest version from [GitHub](https://github.com/nilaoda/N_m3u8DL-RE/releases)
+- Place it in the project folder
+- Rename it to "N_m3u8DL-RE" (without extension)
+- Make sure it has execution permissions:
 ```bash
 chmod +x N_m3u8DL-RE
 ```
-This should resolve the issue, and you can re-run the start command.
 
-All the courses will be downloaded in a folder called "domestika_courses/{coursename}/".
+3. **Node.js and npm**
 
-## Special Thanks
+## Installation
 
-Special thanks to [@Cybasaint](https://www.github.com/Cybasaint) for helping with the project and giving me access to his domestika account for testing.
+1. Clone the repository:
+```bash
+git clone [REPOSITORY_URL]
+cd domestika-downloader
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+## Usage
+
+1. Run the program:
+```bash
+npm start
+```
+
+2. The program will guide you interactively:
+
+   a. **URL Input**:
+   - You can enter one or multiple URLs separated by spaces
+   - URLs can be from any course page
+   - Valid examples:
+     ```
+     https://www.domestika.org/en/courses/1234-course-name
+     https://www.domestika.org/en/courses/1234-course-name/units/5678-unit
+     https://www.domestika.org/en/courses/1234-course-name/course
+     ```
+
+   b. **Subtitle Selection**:
+   - Choose if you want to download subtitles and in which language
+
+3. **Credential Management**:
+   - On first use or if cookies are invalid, the program will ask you to:
+     1. Open Developer Tools (F12)
+     2. Go to Storage -> Cookies tab
+     3. Copy the cookie values:
+        - `_domestika_session`
+        - `_credentials`
+   - Credentials are automatically saved in `.env`
+
+4. **During Download**:
+   - You'll see the progress of each video
+   - Detailed status messages will be shown
+   - In case of error, you'll be offered to update cookies
+
+## File Structure
+
+Courses are downloaded to the `domestika_courses/` folder with the following structure:
+```
+domestika_courses/
+└── Course Name/
+    └── Section/
+        ├── Course Name - U1 - 1_Video Name.mp4
+        └── Course Name - U1 - 1_Video Name.srt
+```
+
+## Notes
+
+- This version is optimized for macOS
+- Credentials are stored locally in `.env` (not uploaded to GitHub)
+- If you encounter invalid cookie errors, the program will guide you to update them
+- Videos are downloaded in the best available quality (1920x1080)
+
+## Credits
+
+- Original project: [ReneR97](https://github.com/ReneR97/domestika-downloader)
+- New version: Chugeno
+- Code implementation: Claude Sonnet (Anthropic)
+
+## Limitations
+
+- Current version is for macOS only
+- Requires a Domestika account with course access
+- Cookies need to be updated periodically

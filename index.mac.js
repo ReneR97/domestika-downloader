@@ -7,8 +7,6 @@ const path = require('path');
 const domestikaAuth = require('./auth.js');
 
 // Variables para los módulos que necesitan instalación
-let cliProgress;
-let colors;
 let inquirer;
 
 // --- CONFIGURATION ---
@@ -26,9 +24,10 @@ let downloadOption;
 // Función para verificar e instalar dependencias
 async function checkAndInstallDependencies() {
     const requiredModules = {
-        'cli-progress': () => cliProgress = require('cli-progress'),
-        'colors': () => colors = require('colors'),
-        'inquirer': () => inquirer = require('inquirer')
+        'inquirer': () => inquirer = require('inquirer'),
+        'cheerio': () => require('cheerio'),
+        'puppeteer': () => require('puppeteer'),
+        'dotenv': () => require('dotenv')
     };
 
     const missingModules = [];
@@ -49,11 +48,9 @@ async function checkAndInstallDependencies() {
             await exec(`npm install ${missingModules.join(' ')}`);
             console.log('Dependencias instaladas correctamente.');
             
-            for (const [moduleName, requireFn] of Object.entries(requiredModules)) {
-                if (missingModules.includes(moduleName)) {
-                    requireFn();
-                }
-            }
+            // Reiniciar el programa después de instalar las dependencias
+            console.log('Reiniciando el programa...\n');
+            process.exit(0); // Salir con código 0 para indicar que no es un error
         } catch (error) {
             throw new Error(`Error instalando dependencias: ${error.message}`);
         }
@@ -174,6 +171,9 @@ if (require.main === module) {
         process.exit(1);
     });
 }
+
+// Exportar main para uso externo
+module.exports = { main };
 
 // ... resto de las funciones (scrapeSite, downloadVideo, etc.) ...
 

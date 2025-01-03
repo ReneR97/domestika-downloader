@@ -4,12 +4,16 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "start": "node index.js"
+        "start": "node ./scripts/start.js",
+        "start:mac": "node index.mac.js",
+        "start:win": "node index.win.js"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
         "cheerio": "^1.0.0-rc.12",
-        "puppeteer": "^19.6.3"
+        "puppeteer": "^19.6.3",
+        "inquirer": "^8.2.6",
+        "dotenv": "^16.3.1"
     }
 }
