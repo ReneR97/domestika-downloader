@@ -19,6 +19,7 @@ const debug_data = [];
 let course_url;
 let subtitle_lang;
 let quality;
+let downloadOption;
 
 // --- END CONFIGURATION ---
 
@@ -61,16 +62,24 @@ async function checkAndInstallDependencies() {
 
 // Función para normalizar URLs de Domestika
 function normalizeDomestikaUrl(url) {
-    // Expresión regular para extraer el ID y nombre del curso
-    const courseRegex = /domestika\.org\/.*?\/courses\/(\d+[-\w]+)/;
+    const courseRegex = /domestika\.org\/.*?\/courses\/(\d+)-([-\w]+)/;
     const match = url.match(courseRegex);
     
     if (match) {
-        // Construir la URL normalizada
-        return `https://www.domestika.org/es/courses/${match[1]}/course`;
+        // Extraer y limpiar el título del curso
+        const rawTitle = match[2]
+            .replace(/-/g, ' ')  // Reemplazar guiones por espacios
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalizar cada palabra
+            .join(' ');
+        
+        return {
+            url: `https://www.domestika.org/es/courses/${match[1]}/course`,
+            courseTitle: rawTitle
+        };
     }
     
-    return url;
+    return { url: url, courseTitle: null };
 }
 
 // Función principal
@@ -115,6 +124,15 @@ async function main() {
                     { name: 'Alemán', value: 'de' },
                     { name: 'Italiano', value: 'it' }
                 ]
+            },
+            {
+                type: 'list',
+                name: 'downloadOption',
+                message: '¿Qué deseas descargar?',
+                choices: [
+                    { name: 'Todo el curso', value: 'all' },
+                    { name: 'Videos específicos', value: 'specific' }
+                ]
             }
         ]);
 
@@ -131,14 +149,14 @@ async function main() {
             .map(url => normalizeDomestikaUrl(url));
 
         console.log(`\nSe procesarán ${courseUrls.length} cursos:`);
-        courseUrls.forEach((url, index) => {
-            console.log(`${index + 1}. ${url}`);
+        courseUrls.forEach((urlInfo, index) => {
+            console.log(`${index + 1}. ${urlInfo.url} (${urlInfo.courseTitle})`);
         });
 
         for (let i = 0; i < courseUrls.length; i++) {
-            const url = courseUrls[i];
-            console.log(`\n📚 Procesando curso ${i + 1} de ${courseUrls.length}: ${url}`);
-            await scrapeSite(url, answers.subtitles, auth);
+            const urlInfo = courseUrls[i];
+            console.log(`\n📚 Procesando curso ${i + 1} de ${courseUrls.length}: ${urlInfo.courseTitle}`);
+            await scrapeSite(urlInfo.url, answers.subtitles, auth, answers.downloadOption, urlInfo.courseTitle);
         }
         
         console.log('\n✅ Todos los cursos han sido procesados');
@@ -159,7 +177,7 @@ if (require.main === module) {
 
 // ... resto de las funciones (scrapeSite, downloadVideo, etc.) ...
 
-async function scrapeSite(courseUrl, subtitle_lang, auth) {
+async function scrapeSite(courseUrl, subtitle_lang, auth, downloadOption, courseTitle) {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(0);
@@ -182,10 +200,6 @@ async function scrapeSite(courseUrl, subtitle_lang, auth) {
 
     let allVideos = [];
     let units = $('h4.h2.unit-item__title a');
-    let courseTitle = $('h1.course-header-new__title')
-        .text()
-        .trim()
-        .replace(/[/\\?%*:|"<>]/g, '-');
 
     // Verificar si estamos en la página correcta
     if (units.length === 0) {
@@ -207,13 +221,14 @@ async function scrapeSite(courseUrl, subtitle_lang, auth) {
             // Forzar la actualización de credenciales
             await domestikaAuth.promptForCredentials(true);
             // Intentar nuevamente con las nuevas credenciales
-            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies());
+            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies(), downloadOption, courseTitle);
         } else {
             throw new Error('No se pueden descargar los videos sin cookies válidas.');
         }
     }
 
-    console.log(units.length + ' Unidades detectadas');
+    console.log(`Curso: ${courseTitle}`);
+    console.log(`${units.length} Unidades detectadas`);
 
     for (let i = 0; i < units.length; i++) {
         let videoData = await getInitialProps($(units[i]).attr('href'), page);
@@ -228,39 +243,87 @@ async function scrapeSite(courseUrl, subtitle_lang, auth) {
         });
     }
 
-    const totalVideos = allVideos.reduce((acc, unit) => acc + unit.videoData.length, 0);
+    // Si el usuario eligió descargar videos específicos
+    if (downloadOption === 'specific') {
+        const videoChoices = allVideos.flatMap(unit => {
+            // Crear el separador/header para la unidad
+            const unitHeader = {
+                name: `Unidad ${unit.unitNumber}: ${unit.title}`,
+                value: `unit_${unit.unitNumber}`,
+                checked: false,
+                type: 'unit'
+            };
 
-    // Si no se encontraron videos después de escanear las unidades
-    if (totalVideos === 0) {
-        await page.close();
-        await browser.close();
+            // Crear las opciones para cada video con indentación
+            const unitVideos = unit.videoData.map((vData, index) => ({
+                name: `    ${index + 1}. ${vData.title}`,
+                value: {
+                    unit: unit,
+                    videoData: vData,
+                    index: index + 1
+                },
+                short: vData.title
+            }));
 
-        console.log('\n❌ No se encontraron videos en las unidades. Esto puede deberse a cookies inválidas.');
-        
-        const answer = await inquirer.prompt([
+            return [unitHeader, ...unitVideos];
+        });
+
+        const selectedVideos = await inquirer.prompt([
             {
-                type: 'confirm',
-                name: 'updateCookies',
-                message: '¿Deseas actualizar las cookies?',
-                default: true
+                type: 'checkbox',
+                name: 'videosToDownload',
+                message: 'Selecciona unidades completas o videos específicos:',
+                choices: videoChoices,
+                pageSize: 20,
+                loop: false
             }
         ]);
 
-        if (answer.updateCookies) {
-            // Forzar la actualización de credenciales
-            await domestikaAuth.promptForCredentials(true);
-            // Intentar nuevamente con las nuevas credenciales
-            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies());
-        } else {
-            throw new Error('No se pueden descargar los videos sin cookies válidas.');
+        // Procesar las selecciones
+        for (const selection of selectedVideos.videosToDownload) {
+            if (typeof selection === 'string' && selection.startsWith('unit_')) {
+                // Si se seleccionó una unidad completa
+                const unitNumber = parseInt(selection.split('_')[1]);
+                const unit = allVideos.find(u => u.unitNumber === unitNumber);
+                
+                if (unit) {
+                    for (let i = 0; i < unit.videoData.length; i++) {
+                        await downloadVideo(
+                            unit.videoData[i],
+                            courseTitle,
+                            unit.title,
+                            i + 1,
+                            subtitle_lang,
+                            unit.unitNumber
+                        );
+                    }
+                }
+            } else {
+                // Si se seleccionó un video específico
+                await downloadVideo(
+                    selection.videoData,
+                    courseTitle,
+                    selection.unit.title,
+                    selection.index,
+                    subtitle_lang,
+                    selection.unit.unitNumber
+                );
+            }
         }
+
+        await page.close();
+        await browser.close();
+        return;
     }
 
-    console.log('Todos los videos encontrados');
+    // Si llegamos aquí es porque downloadOption === 'all'
+    console.log('Descargando todo el curso...');
     let completedVideos = 0;
+    const totalVideos = allVideos.reduce((acc, unit) => acc + unit.videoData.length, 0);
+
+    // Usar solo el método paralelo para descargar todo el curso
     let downloadPromises = [];
 
-    // Preparar todas las descargas
     for (let i = 0; i < allVideos.length; i++) {
         const unit = allVideos[i];
         for (let a = 0; a < unit.videoData.length; a++) {
@@ -305,7 +368,7 @@ async function scrapeSite(courseUrl, subtitle_lang, auth) {
             // Forzar la actualización de credenciales
             await domestikaAuth.promptForCredentials(true);
             // Intentar nuevamente con las nuevas credenciales
-            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies());
+            return scrapeSite(courseUrl, subtitle_lang, await domestikaAuth.getCookies(), downloadOption, courseTitle);
         }
     } else {
         console.log(`\nProceso finalizado. Completados ${completedVideos} de ${totalVideos} videos`);
@@ -343,83 +406,77 @@ async function getInitialProps(url, page) {
     return videoData;
 }
 
-async function fetchFromApi(apiURL, accept_version, access_token) {
-    const response = await fetch(apiURL, {
-        method: 'get',
-        headers: {
-            Authorization: `Bearer ${access_token}`,
-            Accept: 'application/vnd.api+json',
-            'Content-Type': 'application/vnd.api+json',
-            'x-dmstk-accept-version': accept_version,
-        },
-    });
-
-    if (!response.ok) {
-        console.log('Error Fetching Data');
-        return false;
-    }
-
-    try {
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.log(error);
-        return false;
-    }
-}
-
 async function downloadVideo(vData, courseTitle, unitTitle, index, subtitle_lang, unitNumber) {
     if (!vData.playbackURL) {
         throw new Error(`URL de video no válida para ${vData.title}`);
     }
 
     const cleanPath = (path) => path.replace(/\/+/g, '/');
-    const baseDir = cleanPath(`domestika_courses/${courseTitle}/${vData.section}/${unitTitle}`);
-
-    if (!fs.existsSync(baseDir)) {
-        fs.mkdirSync(baseDir, { recursive: true });
-    }
-    
-    // Nuevo formato de nombre: "Nombre del Curso - Ux - Nombre del video"
-    const fileName = `${courseTitle} - U${unitNumber} - ${index}_${vData.title.trimEnd()}`;
+    const finalDir = cleanPath(`domestika_courses/${courseTitle}/${vData.section}/${unitTitle}`);
     
     try {
-        console.log('Descargando video...');
-        await exec(
-            `./N_m3u8DL-RE -sv "res=1920x1080" "${vData.playbackURL}" --save-dir "${baseDir}" --save-name "${fileName}"`,
-            { maxBuffer: 1024 * 1024 * 10 }
-        );
+        if (!fs.existsSync(finalDir)) {
+            fs.mkdirSync(finalDir, { recursive: true });
+        }
         
-        console.log('Video descargado correctamente');
+        const fileName = `${courseTitle} - U${unitNumber} - ${index}_${vData.title.trimEnd()}`;
+        
+        console.log('\nInformación de descarga:');
+        console.log('URL:', vData.playbackURL);
+        console.log('Directorio final:', finalDir);
+        console.log('Nombre archivo:', fileName);
+        
+        console.log('\nDescargando video...');
+        
+        let downloadSuccess = false;
+        
+        try {
+            // Intentar primero con 1080p
+            await exec(
+                `./N_m3u8DL-RE -sv "res=1920x1080" "${vData.playbackURL}" --save-dir "${finalDir}" --save-name "${fileName}" --tmp-dir ".tmp" --log-level OFF`,
+                { maxBuffer: 1024 * 1024 * 100 }
+            );
+            downloadSuccess = true;
+        } catch (error) {
+            // Si falla 1080p, intentar con best
+            console.log('No se encontró calidad 1080p, intentando con la mejor calidad disponible...');
+            await exec(
+                `./N_m3u8DL-RE -sv "for=best" "${vData.playbackURL}" --save-dir "${finalDir}" --save-name "${fileName}" --tmp-dir ".tmp" --log-level OFF`,
+                { maxBuffer: 1024 * 1024 * 100 }
+            );
+            downloadSuccess = true;
+        }
 
-        if (subtitle_lang) {
-            console.log('Descargando subtítulos...');
-            
-            try {
-                await exec(
-                    `./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${baseDir}" --save-name "${fileName}"`,
-                    { maxBuffer: 1024 * 1024 * 10 }
-                );
+        if (downloadSuccess) {
+            console.log('Video descargado correctamente');
 
-                const oldSubPath = path.join(baseDir, `${fileName}.${subtitle_lang}.srt`);
-                const newSubPath = path.join(baseDir, `${fileName}.srt`);
-                const videoPath = path.join(baseDir, `${fileName}.mp4`);
+            if (subtitle_lang) {
+                console.log('Descargando subtítulos...');
+                try {
+                    await exec(
+                        `./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${finalDir}" --save-name "${fileName}" --tmp-dir ".tmp" --log-level OFF`,
+                        { maxBuffer: 1024 * 1024 * 100 }
+                    );
 
-                if (fs.existsSync(oldSubPath)) {
-                    console.log('Subtítulos descargados, incrustando en el video...');
-                    fs.copyFileSync(oldSubPath, newSubPath);
-                    await embedSubtitles(videoPath, oldSubPath);
-                    console.log('Subtítulos incrustados correctamente');
-                } else {
-                    console.log('No se encontraron subtítulos disponibles');
+                    const subPath = path.join(finalDir, `${fileName}.${subtitle_lang}.srt`);
+                    const videoPath = path.join(finalDir, `${fileName}.mp4`);
+                    
+                    if (fs.existsSync(subPath)) {
+                        console.log('Subtítulos descargados, incrustando en el video...');
+                        await embedSubtitles(videoPath, subPath);
+                        console.log('Subtítulos incrustados correctamente');
+                    } else {
+                        console.log('No se encontraron subtítulos disponibles');
+                    }
+                } catch (error) {
+                    console.error('Error procesando subtítulos:', error.message);
                 }
-            } catch (error) {
-                console.error('Error procesando subtítulos:', error.message);
             }
         }
 
         return true;
     } catch (error) {
+        console.error('\nError detallado:', error);
         throw new Error(`Error descargando video: ${error.message}`);
     }
 }

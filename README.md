@@ -2,6 +2,8 @@
 
 [🇪🇸 Leer en Español](README_ES.md)
 
+⚠️ **IMPORTANT NOTICE**: Currently, this version is optimized and tested for macOS only. We are working on Windows compatibility.
+
 This is an enhanced version of the [Original Domestika Course Downloader](https://github.com/ReneR97/domestika-downloader) created by ReneR97.
 
 New version developed by Chugeno, with code implementation by Claude Sonnet (Anthropic).

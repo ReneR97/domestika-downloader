@@ -2,11 +2,13 @@
 
 [🇺🇸 Read in English](README.md)
 
+⚠️ **AVISO IMPORTANTE**: Actualmente, esta versión está optimizada y probada solo para macOS. Estamos trabajando en la compatibilidad con Windows.
+
 Este proyecto es una versión mejorada del [Domestika Course Downloader original](https://github.com/ReneR97/domestika-downloader) creado por ReneR97.
 
 Nueva versión desarrollada por Chugeno, con el código implementado por Claude Sonnet (Anthropic).
 
-⚠️ **IMPORTANTE:** Esta herramienta solo funciona con cursos que hayas comprado. No puede y no debe utilizarse para descargar cursos que no hayas adquirido. Debes ser el propietario legítimo de los cursos que deseas descargar.
+⚠️ **IMPORTANTE:** Esta herramienta solo funciona con cursos que hayas comprado. No puede utilizarse para descargar cursos que no hayas adquirido. Debes ser el propietario legítimo de los cursos que deseas descargar.
 
 ## ¡Apoya el Proyecto!
 
