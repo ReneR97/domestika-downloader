@@ -2,6 +2,7 @@
 .env
 credentials.js
 node_modules/
+backups/
 
 # Carpetas de proyecto
 domestika_courses/
