@@ -237,11 +237,11 @@ async function downloadVideo(vData, title, unitTitle, index) {
 
     try {
         if (machine_os === 'win') {
-            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`, options);
-            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`, options);
+            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
+            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
         } else {
-            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`);
-            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`);
+            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
+            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
         }
 
         if (debug) {
