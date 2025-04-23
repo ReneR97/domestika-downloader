@@ -225,8 +225,10 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
 }
 
 async function downloadVideo(vData, title, unitTitle, index) {
-    if (!fs.existsSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`)) {
-        fs.mkdirSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`, {
+    let save_name = `${index}_${vData.title.trimEnd()}`
+    let save_dir = `domestika_courses/${title}/${vData.section}/${unitTitle}/`
+    if (!fs.existsSync(save_dir)) {
+        fs.mkdirSync(save_dir, {
             recursive: true,
         });
     }
@@ -235,11 +237,11 @@ async function downloadVideo(vData, title, unitTitle, index) {
 
     try {
         if (machine_os === 'win') {
-            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
-            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`, options);
+            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`, options);
         } else {
-            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
-            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
+            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`);
+            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --save-name "${save_name}"`);
         }
 
         if (debug) {
