@@ -60,7 +60,7 @@ function findSchemaMarkup($, type) {
 
 async function scrapeSite() {
     //Scrape site for links to videos
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(0);
     await page.setCookie(...cookies);
