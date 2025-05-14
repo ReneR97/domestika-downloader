@@ -8,7 +8,8 @@ const fs = require('fs');
 const debug = false;
 const debug_data = [];
 
-const course_url = 'YOUR_COURSE_URL_HERE';
+const course_urls = ['YOUR_COURSE_URLs_HERE', 'YOUR_COURSE_URLs_HERE'];
+
 const subtitle_lang = 'en';
 //Specifiy your OS either as 'win' for Windows machines or 'mac' for MacOS/Linux machines
 const machine_os = 'YOUR_OS_HERE';
@@ -29,7 +30,7 @@ const _credentials_ = 'YOUR_CREDENTIALS_HERE';
 //Check if the N_m3u8DL-RE binary exists, throw error if not
 const executable_name = machine_os === 'win' ? 'N_m3u8DL-RE.exe' : 'N_m3u8DL-RE';
 if (fs.existsSync(executable_name)) {
-    scrapeSite();
+    scrapeAllSites();
 } else {
     throw Error('N_m3u8DL-RE binary not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases');
 }
@@ -37,6 +38,13 @@ if (fs.existsSync(executable_name)) {
 //Get access token from the credentials
 const regex_token = /accessToken\":\"(.*?)\"/gm;
 const access_token = regex_token.exec(decodeURI(_credentials_))[1];
+
+async function scrapeAllSites(){
+    for (const course_url of course_urls) {
+        await scrapeSite(course_url);
+    };
+}
+
 
 function findSchemaMarkup($, type) {
     let ldJsonScripts = $('script[type=application/ld+json]');
@@ -58,7 +66,7 @@ function findSchemaMarkup($, type) {
     return null;
 }
 
-async function scrapeSite() {
+async function scrapeSite(course_url) {
     //Scrape site for links to videos
     const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
