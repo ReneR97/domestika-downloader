@@ -38,6 +38,26 @@ if (fs.existsSync(executable_name)) {
 const regex_token = /accessToken\":\"(.*?)\"/gm;
 const access_token = regex_token.exec(decodeURI(_credentials_))[1];
 
+function findSchemaMarkup($, type) {
+    let ldJsonScripts = $('script[type=application/ld+json]');
+    // Loop through each application/ld+json
+    for (let i = 0; i < ldJsonScripts.length; i++) {
+        let jsonText = $(ldJsonScripts[i]).html().trim(); // Get the JSON
+        try {
+            let parsed = JSON.parse(jsonText); // try parsing JSON into object
+            // JSON can contain the schema right away, or be an array of schemas
+            // Make it be always an array of schemas so we can loop predictably
+            let candidates = Array.isArray(parsed) ? parsed : [parsed];
+            for (const entry of candidates) {
+                if (entry['@context'].includes('schema.org') && entry['@type']===type) {
+                    return entry; // Found the schema we were looking for
+                }
+            }
+        } catch (err) {}
+    }
+    return null;
+}
+
 async function scrapeSite() {
     //Scrape site for links to videos
     const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
@@ -60,13 +80,11 @@ async function scrapeSite() {
     const $ = cheerio.load(html);
 
     console.log('Scraping Site');
+    schemaMarkup = findSchemaMarkup($, 'Course');
 
     let allVideos = [];
     let units = $('h4.h2.unit-item__title a');
-    let title = $('h1.course-header-new__title')
-        .text()
-        .trim()
-        .replace(/[/\\?%*:|"<>]/g, '-');
+    let title = schemaMarkup.name.trim().replace(/[/\\?%*:|"<>]/g, '-');
 
     let totalVideos = 1;
     let regex_final = /courses\/(.*?)-*\/final_project/gm;
