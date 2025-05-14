@@ -45,9 +45,30 @@ async function scrapeAllSites(){
     };
 }
 
+
+function findSchemaMarkup($, type) {
+    let ldJsonScripts = $('script[type=application/ld+json]');
+    // Loop through each application/ld+json
+    for (let i = 0; i < ldJsonScripts.length; i++) {
+        let jsonText = $(ldJsonScripts[i]).html().trim(); // Get the JSON
+        try {
+            let parsed = JSON.parse(jsonText); // try parsing JSON into object
+            // JSON can contain the schema right away, or be an array of schemas
+            // Make it be always an array of schemas so we can loop predictably
+            let candidates = Array.isArray(parsed) ? parsed : [parsed];
+            for (const entry of candidates) {
+                if (entry['@context'].includes('schema.org') && entry['@type']===type) {
+                    return entry; // Found the schema we were looking for
+                }
+            }
+        } catch (err) {}
+    }
+    return null;
+}
+
 async function scrapeSite(course_url) {
     //Scrape site for links to videos
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(0);
     await page.setCookie(...cookies);
@@ -67,13 +88,11 @@ async function scrapeSite(course_url) {
     const $ = cheerio.load(html);
 
     console.log('Scraping Site');
+    schemaMarkup = findSchemaMarkup($, 'Course');
 
     let allVideos = [];
     let units = $('h4.h2.unit-item__title a');
-    let title = $('h1.course-header-new__title')
-        .text()
-        .trim()
-        .replace(/[/\\?%*:|"<>]/g, '-');
+    let title = schemaMarkup.name.trim().replace(/[/\\?%*:|"<>]/g, '-');
 
     let totalVideos = 1;
     let regex_final = /courses\/(.*?)-*\/final_project/gm;
@@ -232,8 +251,10 @@ async function fetchFromApi(apiURL, accept_version, access_token) {
 }
 
 async function downloadVideo(vData, title, unitTitle, index) {
-    if (!fs.existsSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`)) {
-        fs.mkdirSync(`domestika_courses/${title}/${vData.section}/${unitTitle}/`, {
+    let save_name = `${index}_${vData.title.trimEnd()}`
+    let save_dir = `domestika_courses/${title}/${vData.section}/${unitTitle}/`
+    if (!fs.existsSync(save_dir)) {
+        fs.mkdirSync(save_dir, {
             recursive: true,
         });
     }
@@ -242,11 +263,11 @@ async function downloadVideo(vData, title, unitTitle, index) {
 
     try {
         if (machine_os === 'win') {
-            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
-            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`, options);
+            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
+            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
         } else {
-            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
-            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "domestika_courses/${title}/${vData.section}/${unitTitle}" --save-name "${index}_${vData.title.trimEnd()}"`);
+            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
+            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
         }
 
         if (debug) {
