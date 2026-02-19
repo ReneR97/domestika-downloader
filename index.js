@@ -11,6 +11,10 @@ const debug_data = [];
 const course_urls = ['YOUR_COURSE_URLs_HERE', 'YOUR_COURSE_URLs_HERE'];
 
 const subtitle_lang = 'en';
+const transcode_to_hevc = false; // Enable H.265 transcode
+const use_nvenc = false; // true = GPU (NVENC), false = CPU (libx265)
+const max_concurrent_processes = 3; // Numer of downloads/transcodes to run in parallel
+
 //Specifiy your OS either as 'win' for Windows machines or 'mac' for MacOS/Linux machines
 const machine_os = 'YOUR_OS_HERE';
 
@@ -38,6 +42,30 @@ if (fs.existsSync(executable_name)) {
 //Get access token from the credentials
 const regex_token = /accessToken\":\"(.*?)\"/gm;
 const access_token = regex_token.exec(decodeURI(_credentials_))[1];
+
+
+// Helper function for controlled concurrency
+async function processWithConcurrency(tasks, maxConcurrent) {
+    const results = [];
+    const executing = [];
+    
+    for (const task of tasks) {
+        const promise = task().then(result => {
+            executing.splice(executing.indexOf(promise), 1);
+            return result;
+        });
+        
+        results.push(promise);
+        executing.push(promise);
+        
+        if (executing.length >= maxConcurrent) {
+            await Promise.race(executing);
+        }
+    }
+    
+    return Promise.all(results);
+}
+
 
 async function scrapeAllSites(){
     for (const course_url of course_urls) {
@@ -151,36 +179,47 @@ async function scrapeSite(course_url) {
                 final_project_id = final_video_data.video.data.id;
                 final_data = await fetchFromApi(`https://api.domestika.org/api/videos/${final_project_id}?with_server_timing=true`, 'video.v1', access_token);
 
-                allVideos.push({
-                    title: 'Final project',
-                    videoData: [
-                        {
-                            playbackURL: final_data.data.attributes.playbackUrl,
-                            title: 'Final project',
-                            section: 'Final project',
-                        },
-                    ],
-                });
+                if (final_data && final_data.data && final_data.data.attributes && final_data.data.attributes.playbackUrl) {
+                    allVideos.push({
+                        title: 'Final project',
+                        videoData: [
+                            {
+                                playbackURL: final_data.data.attributes.playbackUrl,
+                                title: 'Final project',
+                                section: 'Final project',
+                            },
+                        ],
+                    });
+                    console.log('Final project video added');
+                } else {
+                    console.log('Final project exists but has no video');
+                }
             }
         }
     }
 
     //Loop through all files and download them
     let count = 0;
-    let downloadPromises = [];
+    const downloadTasks = [];
+
+    // Build array of download tasks
     for (let i = 0; i < allVideos.length; i++) {
         const unit = allVideos[i];
         for (let a = 0; a < unit.videoData.length; a++) {
             const vData = unit.videoData[a];
-            // Push the download promise to the array
-            downloadPromises.push(downloadVideo(vData, title, unit.title, a));
-
-            count++;
-            console.log(`Download ${count}/${totalVideos} Started`);
+            const currentCount = ++count;
+            
+            // Create a task (function that returns a promise)
+            downloadTasks.push(() => {
+                console.log(`Download ${currentCount}/${totalVideos} Started`);
+                return downloadVideo(vData, title, unit.title, a);
+            });
         }
-        // Wait for all downloads in the unit to complete
-        await Promise.all(downloadPromises);
     }
+
+    // Execute with controlled concurrency
+    console.log(`Processing ${totalVideos} videos with max ${max_concurrent_processes} concurrent processes`);
+    await processWithConcurrency(downloadTasks, max_concurrent_processes);
 
     await page.close();
     await browser.close();
@@ -261,18 +300,57 @@ async function downloadVideo(vData, title, unitTitle, index) {
     const options = { maxBuffer: 1024 * 1024 * 10 };
 
     try {
+        // Download video
         if (machine_os === 'win') {
-            let log = await exec(`N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
-            let log2 = await exec(`N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
+            await exec(`N_m3u8DL-RE.exe -sv res="1080*":for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
+            await exec(`N_m3u8DL-RE.exe --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`, options);
         } else {
-            let log = await exec(`./N_m3u8DL-RE -sv res="1080*":codec=hvc1:for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
-            let log2 = await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
+            await exec(`./N_m3u8DL-RE -sv res="1080*":for=best "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
+            await exec(`./N_m3u8DL-RE --auto-subtitle-fix --sub-format SRT --select-subtitle lang="${subtitle_lang}":for=all "${vData.playbackURL}" --save-dir "${save_dir}" --tmp-dir "${save_dir}" --save-name "${save_name}"`);
+        }
+
+        // Transcode to H.265 if enabled
+        if (transcode_to_hevc) {
+            const downloaded_file = `${save_dir}${save_name}.mp4`;
+            const temp_output = `${save_dir}${save_name}_hevc.mp4`;
+            
+            // Check if file was downloaded
+            if (fs.existsSync(downloaded_file)) {
+                try {
+                    // Detect current codec
+                    const probe_cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "${downloaded_file}"`;
+                    const { stdout } = await exec(probe_cmd, options);
+                    const current_codec = stdout.trim();
+                    
+                    // Only transcode if not already H.265
+                    if (current_codec === 'hevc' || current_codec === 'h265') {
+                        console.log(`${save_name} already in H.265, skipping transcode`);
+                    } else {
+                        console.log(`Transcoding ${save_name} from ${current_codec} to H.265...`);
+                        
+                        const encoder = use_nvenc ? 'hevc_nvenc' : 'libx265';
+                        const encoder_params = use_nvenc 
+                            ? '-preset p7 -tune hq -rc vbr -cq 23 -b:v 0' 
+                            : '-preset medium -crf 23';
+                        
+                        await exec(`ffmpeg -i "${downloaded_file}" -c:v ${encoder} ${encoder_params} -c:a copy -c:s copy "${temp_output}"`, options);
+                        
+                        // Replace original with transcoded version
+                        fs.unlinkSync(downloaded_file);
+                        fs.renameSync(temp_output, downloaded_file);
+                        
+                        console.log(`Transcode complete: ${save_name}`);
+                    }
+                } catch (probe_error) {
+                    console.error(`Error detecting codec for ${save_name}, skipping transcode: ${probe_error.message}`);
+                }
+            }
         }
 
         if (debug) {
             debug_data.push({
                 videoURL: vData.playbackURL,
-                output: [log, log2],
+                output: 'Download successful',
             });
         }
     } catch (error) {
