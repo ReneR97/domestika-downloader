@@ -297,7 +297,7 @@ async function downloadVideo(vData, title, unitTitle, index) {
         });
     }
 
-    const options = { maxBuffer: 1024 * 1024 * 10 };
+    const options = { maxBuffer: 1024 * 1024 * 10, env: { ...process.env, CI: 'true' } };
 
     try {
         // Download video
