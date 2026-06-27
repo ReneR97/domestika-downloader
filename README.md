@@ -1,7 +1,20 @@
 # Node JS Tool to download full courses from Domestika
 
-> **A new, improved version of this project is now available: [Amayori](https://github.com/ReneR97/Amayori)**
-> Amayori is a **desktop application** with a user-friendly UI, built on top of this project with more features and easier setup — no coding required.
+<div align="center">
+
+### **>>> [Amayori](https://github.com/ReneR97/Amayori) — The successor to this project <<<**
+
+A **desktop application** with a full GUI, built on top of this project with more features and easier setup.
+
+**No coding required. Just install and use.**
+
+[**Check it out on GitHub**](https://github.com/ReneR97/Amayori)
+
+</div>
+
+---
+
+
 
 This script is a simple way to download a full course from Domestika with advanced features including parallel downloads, optional H.265 transcoding, and robust error handling.
 
