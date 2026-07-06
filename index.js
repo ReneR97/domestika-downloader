@@ -34,6 +34,9 @@ const _credentials_ = 'YOUR_CREDENTIALS_HERE';
 //Check if the N_m3u8DL-RE binary exists, throw error if not
 const executable_name = machine_os === 'win' ? 'N_m3u8DL-RE.exe' : 'N_m3u8DL-RE';
 if (fs.existsSync(executable_name)) {
+    if (machine_os !== 'win') {
+        try { fs.chmodSync(executable_name, '755'); } catch (e) {}
+    }
     scrapeAllSites();
 } else {
     throw Error('N_m3u8DL-RE binary not found! Download the Binary here: https://github.com/nilaoda/N_m3u8DL-RE/releases');
@@ -297,7 +300,7 @@ async function downloadVideo(vData, title, unitTitle, index) {
         });
     }
 
-    const options = { maxBuffer: 1024 * 1024 * 10 };
+    const options = { maxBuffer: 1024 * 1024 * 10, env: { ...process.env, CI: 'true' } };
 
     try {
         // Download video
